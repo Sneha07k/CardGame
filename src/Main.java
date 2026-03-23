@@ -4,106 +4,121 @@ import java.util.*;
 
 public class Main {
 
-    static final Scanner sc = new Scanner(System.in);
+    static Scanner sc = new Scanner(System.in);
 
     public static void main(String[] args) {
-        printBanner();
+        System.out.println("=== CARD GAME ===");
 
-        boolean again = true;
-        while (again) {
+        while (true) {
             Difficulty d = chooseDifficulty();
             runGame(d);
 
-            System.out.print("\nPlay again? (y/n): ");
-            again = sc.nextLine().trim().equalsIgnoreCase("y");
+            System.out.print("Play again? (y/n): ");
+            if (!sc.nextLine().trim().equalsIgnoreCase("y")) break;
         }
 
-        System.out.println("\nThanks for playing.");
+        System.out.println("Goodbye.");
     }
 
+ 
+
     static void runGame(Difficulty d) {
-        Deck deck = Deck.build();
+        Deck deck = new Deck();
         deck.shuffle();
 
-        List<Card> player = deck.deal(10);
-        List<Card> cpu = deck.deal(10);
+        List<Card> playerHand = deck.deal(10);
+        List<Card> cpuHand    = deck.deal(10);
 
-        GameState.Turn turn = new Random().nextBoolean()
+        GameState.Turn first = new Random().nextBoolean()
                 ? GameState.Turn.PLAYER
                 : GameState.Turn.COMPUTER;
 
-        GameState state = new GameState(player, cpu, turn);
-        AIEngine ai = new AIEngine(d);
+        GameState  state  = new GameState(playerHand, cpuHand, first);
+        AIEngine   ai     = new AIEngine(d);
         GameEngine engine = new GameEngine(state, ai);
 
-        System.out.println("\nGame started");
-        System.out.println("Difficulty: " + d);
-        System.out.println("First turn: " + (turn == GameState.Turn.PLAYER ? "You" : "Computer"));
+        System.out.println("\nDifficulty : " + d);
+        System.out.println("First turn : " + (first == GameState.Turn.PLAYER ? "You" : "Computer"));
 
         while (!state.isGameOver()) {
-            System.out.println("\nRound " + state.getRoundNumber());
-            System.out.println("You: " + state.getPlayerHand().size() + " | CPU: " + state.getComputerHand().size());
-
+            System.out.println("\n Round " + state.round + " ---");
+            System.out.println("Your cards: " + state.playerHand.size() + "  CPU cards: " + state.computerHand.size());
             playRound(state, engine);
         }
 
-        showResult(state);
+        // Result
+        System.out.println("\n=== GAME OVER ===");
+        if (state.getWinner() == GameState.Turn.PLAYER)
+            System.out.println("YOU WIN!");
+        else
+            System.out.println("Computer wins.");
+
+        System.out.println("Tricks -- You: " + state.playerTricks + "  CPU: " + state.computerTricks);
+        System.out.println("\nRound log:");
+        for (String line : state.log) System.out.println("  " + line);
     }
 
-    static void playRound(GameState s, GameEngine e) {
-        GameState.Turn lead = s.getCurrentTurn();
 
+
+    static void playRound(GameState state, GameEngine engine) {
+        GameState.Turn leader = state.currentTurn;
         Card playerCard, cpuCard;
 
-        if (lead == GameState.Turn.PLAYER) {
-            printHand(s.getPlayerHand());
-            playerCard = pickCard(s.getPlayerHand(), e, null);
+        if (leader == GameState.Turn.PLAYER) {
+            printHand(state.playerHand);
+            playerCard = pickCard(state.playerHand, engine, null);
+            engine.playerLead(playerCard);
+            System.out.println("You played   : " + playerCard);
 
-            e.playerLead(playerCard);
-            System.out.println("You played: " + playerCard);
-
-            cpuCard = e.computerRespond(playerCard);
-            System.out.println("Computer played: " + cpuCard);
+            cpuCard = engine.computerRespond(playerCard);
+            System.out.println("CPU played   : " + cpuCard);
 
         } else {
-            cpuCard = e.computerLead();
-            System.out.println("Computer leads: " + cpuCard);
+           
+            cpuCard = engine.computerLead();
+            System.out.println("CPU leads    : " + cpuCard);
 
-            printHand(s.getPlayerHand());
-            playerCard = pickCard(s.getPlayerHand(), e, cpuCard);
+            boolean mustFollow = engine.playerHasSuit(cpuCard.getSuit());
+            if (mustFollow)
+                System.out.println("(You must follow suit: " + cpuCard.getSuit() + ")");
+            else
+                System.out.println("(You have no " + cpuCard.getSuit() + " -- play anything)");
 
-            e.playerRespond(playerCard, cpuCard);
-            System.out.println("You played: " + playerCard);
+            printHand(state.playerHand);
+            playerCard = pickCard(state.playerHand, engine, cpuCard);
+            engine.playerRespond(playerCard, cpuCard);
+            System.out.println("You played   : " + playerCard);
         }
 
-        GameEngine.TrickResult result = e.resolveTrick(lead);
-        System.out.println(result.message);
+        String result = engine.resolveTrick(leader);
+        System.out.println(result);
 
-        s.addLog("Round " + (s.getRoundNumber() - 1) + ": " + playerCard + " vs " + cpuCard);
+        state.log.add("Round " + (state.round - 1) + ": You=" + playerCard + " CPU=" + cpuCard);
     }
 
-    static Card pickCard(List<Card> hand, GameEngine e, Card lead) {
+
+    static Card pickCard(List<Card> hand, GameEngine engine, Card lead) {
         while (true) {
-            System.out.print("Pick card: ");
-            String input = sc.nextLine();
+            System.out.print("Pick (1-" + hand.size() + "): ");
+            String input = sc.nextLine().trim();
 
             int idx;
             try {
                 idx = Integer.parseInt(input) - 1;
-            } catch (Exception ex) {
-                System.out.println("Enter a valid number");
+            } catch (NumberFormatException e) {
+                System.out.println("Enter a number.");
                 continue;
             }
 
             if (idx < 0 || idx >= hand.size()) {
-                System.out.println("Invalid choice");
+                System.out.println("Out of range.");
                 continue;
             }
 
             Card chosen = hand.get(idx);
 
-            if (lead != null && e != null && !e.isLegalPlay(chosen, lead)) {
-                System.out.println("You must follow suit");
+            if (lead != null && !engine.isLegalPlay(chosen, lead)) {
+                System.out.println("Must follow suit: " + lead.getSuit());
                 continue;
             }
 
@@ -112,49 +127,23 @@ public class Main {
     }
 
     static void printHand(List<Card> hand) {
-        System.out.println("\nYour hand:");
-
-        for (int i = 0; i < hand.size(); i++) {
-            System.out.print("[" + (i + 1) + "] " + hand.get(i) + "  ");
-        }
-
+        System.out.println("Your hand:");
+        for (int i = 0; i < hand.size(); i++)
+            System.out.print("[" + (i + 1) + "]" + hand.get(i) + " ");
         System.out.println();
     }
 
-    static void showResult(GameState s) {
-        System.out.println("\nGame Over");
-
-        if (s.getWinner() == GameState.Turn.PLAYER) {
-            System.out.println("You win");
-        } else {
-            System.out.println("Computer wins");
-        }
-
-        System.out.println("Score: " + s.getPlayerTricks() + " - " + s.getComputerTricks());
-
-        for (String log : s.getTrickLog()) {
-            System.out.println(log);
-        }
-    }
+  
 
     static Difficulty chooseDifficulty() {
-        System.out.println("\n1. Easy");
-        System.out.println("2. Medium");
-        System.out.println("3. Hard");
-
+        System.out.println("\n1. Easy\n2. Medium\n3. Hard");
         while (true) {
             System.out.print("Choice: ");
-            String s = sc.nextLine();
-
+            String s = sc.nextLine().trim();
             if (s.equals("1")) return Difficulty.EASY;
             if (s.equals("2")) return Difficulty.MEDIUM;
             if (s.equals("3")) return Difficulty.HARD;
-
-            System.out.println("Try again");
+            System.out.println("Enter 1, 2, or 3.");
         }
-    }
-
-    static void printBanner() {
-        System.out.println("\n=== CARD GAME ===");
     }
 }
