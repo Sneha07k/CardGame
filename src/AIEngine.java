@@ -1,8 +1,4 @@
-package cardgame;
-
 import java.util.*;
-
-enum Difficulty { EASY, MEDIUM, HARD }
 
 public class AIEngine {
 
@@ -14,17 +10,20 @@ public class AIEngine {
     }
 
     public Card chooseLead(List<Card> hand) {
-        if (difficulty == Difficulty.EASY)   return randomCard(hand);
-        if (difficulty == Difficulty.MEDIUM) return lowest(hand);
+        if (difficulty == Difficulty.EASY)
+            return randomCard(hand);
+        if (difficulty == Difficulty.MEDIUM)
+            return lowest(hand);
         return hardLead(hand);
     }
 
     public Card chooseResponse(List<Card> hand, Card lead) {
-        if (difficulty == Difficulty.EASY)   return easyResp(hand, lead);
-        if (difficulty == Difficulty.MEDIUM) return mediumResp(hand, lead);
+        if (difficulty == Difficulty.EASY)
+            return easyResp(hand, lead);
+        if (difficulty == Difficulty.MEDIUM)
+            return mediumResp(hand, lead);
         return hardResp(hand, lead);
     }
-
 
     private Card randomCard(List<Card> hand) {
         return hand.get(rng.nextInt(hand.size()));
@@ -32,32 +31,33 @@ public class AIEngine {
 
     private Card easyResp(List<Card> hand, Card lead) {
         List<Card> same = sameSuit(hand, lead.getSuit());
-        if (!same.isEmpty()) return randomCard(same);
+        if (!same.isEmpty())
+            return randomCard(same);
         return randomCard(hand);
     }
-
 
     private Card lowest(List<Card> hand) {
         Card res = hand.get(0);
         for (Card c : hand)
-            if (c.getValue() < res.getValue()) res = c;
+            if (c.getValue() < res.getValue())
+                res = c;
         return res;
     }
 
     private Card highest(List<Card> hand) {
         Card res = hand.get(0);
         for (Card c : hand)
-            if (c.getValue() > res.getValue()) res = c;
+            if (c.getValue() > res.getValue())
+                res = c;
         return res;
     }
 
     private Card mediumResp(List<Card> hand, Card lead) {
         List<Card> same = sameSuit(hand, lead.getSuit());
-        if (!same.isEmpty()) return lowest(same);
+        if (!same.isEmpty())
+            return lowest(same);
         return highest(hand);
     }
-
- 
 
     private Card hardLead(List<Card> hand) {
         Card.Suit best = longestSuit(hand);
@@ -75,19 +75,19 @@ public class AIEngine {
                         winner = c;
                 }
             }
-            if (winner != null) return winner;
-            return lowest(same); 
+            if (winner != null)
+                return winner;
+            return lowest(same);
         }
 
         return highest(sameSuit(hand, longestSuit(hand)));
     }
 
-
-
     private List<Card> sameSuit(List<Card> hand, Card.Suit suit) {
         List<Card> res = new ArrayList<>();
         for (Card c : hand)
-            if (c.getSuit() == suit) res.add(c);
+            if (c.getSuit() == suit)
+                res.add(c);
         return res;
     }
 
